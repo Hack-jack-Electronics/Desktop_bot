@@ -1,0 +1,5 @@
+/home/robophilia/workspace/RTOS_workspace/common/ThirdParty/SEGGER/SEGGER/SEGGER_RTT_printf.c:73:13:_StoreChar	4
+/home/robophilia/workspace/RTOS_workspace/common/ThirdParty/SEGGER/SEGGER/SEGGER_RTT_printf.c:98:13:_PrintUnsigned	20
+/home/robophilia/workspace/RTOS_workspace/common/ThirdParty/SEGGER/SEGGER/SEGGER_RTT_printf.c:188:13:_PrintInt	25
+/home/robophilia/workspace/RTOS_workspace/common/ThirdParty/SEGGER/SEGGER/SEGGER_RTT_printf.c:283:5:SEGGER_RTT_vprintf	34
+/home/robophilia/workspace/RTOS_workspace/common/ThirdParty/SEGGER/SEGGER/SEGGER_RTT_printf.c:474:5:SEGGER_RTT_printf	1
