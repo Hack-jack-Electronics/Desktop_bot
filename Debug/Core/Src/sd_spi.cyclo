@@ -1,0 +1,7 @@
+../Core/Src/sd_spi.c:5:13:SPI5_SetSpeed	1
+../Core/Src/sd_spi.c:12:16:SPIx_WriteRead	1
+../Core/Src/sd_spi.c:19:16:SD_ReadyWait	3
+../Core/Src/sd_spi.c:29:16:SD_SendCmd	7
+../Core/Src/sd_spi.c:63:9:SD_Init	21
+../Core/Src/sd_spi.c:107:9:SD_ReadBlock	7
+../Core/Src/sd_spi.c:132:9:SD_WriteBlock	7

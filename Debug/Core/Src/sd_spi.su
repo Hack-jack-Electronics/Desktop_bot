@@ -1,0 +1,7 @@
+../Core/Src/sd_spi.c:5:13:SPI5_SetSpeed	16	static
+../Core/Src/sd_spi.c:12:16:SPIx_WriteRead	32	static
+../Core/Src/sd_spi.c:19:16:SD_ReadyWait	16	static
+../Core/Src/sd_spi.c:29:16:SD_SendCmd	24	static
+../Core/Src/sd_spi.c:63:9:SD_Init	24	static
+../Core/Src/sd_spi.c:107:9:SD_ReadBlock	32	static
+../Core/Src/sd_spi.c:132:9:SD_WriteBlock	24	static
