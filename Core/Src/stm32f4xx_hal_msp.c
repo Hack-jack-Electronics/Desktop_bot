@@ -23,6 +23,8 @@
 /* USER CODE BEGIN Includes */
 
 /* USER CODE END Includes */
+extern DMA_HandleTypeDef hdma_i2s2_ext_tx;
+
 extern DMA_HandleTypeDef hdma_spi2_rx;
 
 extern DMA_HandleTypeDef hdma_usart1_rx;
@@ -116,6 +118,7 @@ void HAL_I2S_MspInit(I2S_HandleTypeDef* hi2s)
     /**I2S2 GPIO Configuration
     PB12     ------> I2S2_WS
     PB13     ------> I2S2_CK
+    PB14     ------> I2S2_ext_SD
     PB15     ------> I2S2_SD
     */
     GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_15;
@@ -125,7 +128,32 @@ void HAL_I2S_MspInit(I2S_HandleTypeDef* hi2s)
     GPIO_InitStruct.Alternate = GPIO_AF5_SPI2;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
+    GPIO_InitStruct.Pin = GPIO_PIN_14;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    GPIO_InitStruct.Alternate = GPIO_AF6_I2S2ext;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
     /* I2S2 DMA Init */
+    /* I2S2_EXT_TX Init */
+    hdma_i2s2_ext_tx.Instance = DMA1_Stream4;
+    hdma_i2s2_ext_tx.Init.Channel = DMA_CHANNEL_2;
+    hdma_i2s2_ext_tx.Init.Direction = DMA_MEMORY_TO_PERIPH;
+    hdma_i2s2_ext_tx.Init.PeriphInc = DMA_PINC_DISABLE;
+    hdma_i2s2_ext_tx.Init.MemInc = DMA_MINC_ENABLE;
+    hdma_i2s2_ext_tx.Init.PeriphDataAlignment = DMA_PDATAALIGN_HALFWORD;
+    hdma_i2s2_ext_tx.Init.MemDataAlignment = DMA_MDATAALIGN_HALFWORD;
+    hdma_i2s2_ext_tx.Init.Mode = DMA_CIRCULAR;
+    hdma_i2s2_ext_tx.Init.Priority = DMA_PRIORITY_LOW;
+    hdma_i2s2_ext_tx.Init.FIFOMode = DMA_FIFOMODE_DISABLE;
+    if (HAL_DMA_Init(&hdma_i2s2_ext_tx) != HAL_OK)
+    {
+      Error_Handler();
+    }
+
+    __HAL_LINKDMA(hi2s,hdmatx,hdma_i2s2_ext_tx);
+
     /* SPI2_RX Init */
     hdma_spi2_rx.Instance = DMA1_Stream3;
     hdma_spi2_rx.Init.Channel = DMA_CHANNEL_0;
@@ -174,11 +202,13 @@ void HAL_I2S_MspDeInit(I2S_HandleTypeDef* hi2s)
     /**I2S2 GPIO Configuration
     PB12     ------> I2S2_WS
     PB13     ------> I2S2_CK
+    PB14     ------> I2S2_ext_SD
     PB15     ------> I2S2_SD
     */
-    HAL_GPIO_DeInit(GPIOB, GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_15);
+    HAL_GPIO_DeInit(GPIOB, GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15);
 
     /* I2S2 DMA DeInit */
+    HAL_DMA_DeInit(hi2s->hdmatx);
     HAL_DMA_DeInit(hi2s->hdmarx);
 
     /* I2S2 interrupt DeInit */

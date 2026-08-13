@@ -59,6 +59,8 @@
 
 /* Private variables ---------------------------------------------------------*/
 I2S_HandleTypeDef hi2s2;
+I2S_HandleTypeDef hi2s2ext;
+DMA_HandleTypeDef hdma_i2s2_ext_tx;
 DMA_HandleTypeDef hdma_spi2_rx;
 
 UART_HandleTypeDef huart1;
@@ -193,61 +195,80 @@ void esp_ring_buffer_write(uint8_t *data, uint16_t len);
   */
 int main(void)
 {
+
   /* USER CODE BEGIN 1 */
   /* USER CODE END 1 */
 
+  /* MCU Configuration--------------------------------------------------------*/
+
+  /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
   HAL_Init();
+
+  /* USER CODE BEGIN Init */
+
+  /* USER CODE END Init */
+
+  /* Configure the system clock */
   SystemClock_Config();
+
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_USART2_UART_Init();
   MX_USART1_UART_Init();
   MX_I2S2_Init();
-
   /* USER CODE BEGIN 2 */
   HAL_UART_Receive_DMA(&huart1, esp32_rx_buffer, RX_BUFF_SIZE);
   __HAL_UART_ENABLE_IT(&huart1, UART_IT_IDLE);
-  HAL_I2S_Receive_DMA(&hi2s2, i2sBuffer, I2S_SLOTS_TOTAL);
-  /* USER CODE END 2 */
-
+  static uint16_t txDummyBuffer[I2S_HALFWORDS] = {0};
+  // CORRECT — 4 arguments, only the main handle
+  HAL_I2SEx_TransmitReceive_DMA(&hi2s2, txDummyBuffer, i2sBuffer, I2S_SLOTS_TOTAL);
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  while (1) {
-      ESP32_ProcessResponses();
-      ESP32_StateMachine();
+  while (1)
+  {
+    /* USER CODE END WHILE */
+	  /* USER CODE BEGIN 3 */
+	        ESP32_ProcessResponses();
+	        ESP32_StateMachine();
 
-      if (btnPressFlag)
-      {
-          btnPressFlag = 0;
-          if (espState == ESP_AUDIO_READY) {
-              HAL_UART_Transmit(&huart2, (uint8_t*)"REC START\r\n", 11, 100);
-          } else {
-              HAL_UART_Transmit(&huart2, (uint8_t*)"BTN: not ready\r\n", 16, 100);
-          }
-      }
-      if (btnReleaseFlag)
-      {
-          btnReleaseFlag = 0;
-          HAL_UART_Transmit(&huart2, (uint8_t*)"REC STOP\r\n", 10, 100);
-      }
+	        if (btnPressFlag)
+	        {
+	            btnPressFlag = 0;
+	            if (espState == ESP_AUDIO_READY) {
+	                HAL_UART_Transmit(&huart2, (uint8_t*)"REC START\r\n", 11, 100);
+	            } else {
+	                HAL_UART_Transmit(&huart2, (uint8_t*)"BTN: not ready\r\n", 16, 100);
+	            }
+	        }
+	        if (btnReleaseFlag)
+	        {
+	            btnReleaseFlag = 0;
+	            HAL_UART_Transmit(&huart2, (uint8_t*)"REC STOP\r\n", 10, 100);
+	        }
 
-      if (tcpSendPending && tcpSendState == TCP_IDLE && espState == ESP_AUDIO_READY)
-      {
-          tcpSendPending = 0;
-          tcpSendState = TCP_CMD;
-          HAL_UART_Transmit(&huart2, (uint8_t*)"[MAIN] TCP trigger\r\n", 20, 50);
-      }
-      TCP_AudioSendStateMachine();
+	        if (tcpSendPending && tcpSendState == TCP_IDLE && espState == ESP_AUDIO_READY)
+	        {
+	            tcpSendPending = 0;
+	            tcpSendState = TCP_CMD;
+	        }
+	        TCP_AudioSendStateMachine();
 
-      if (bufHalfReady) {
-          bufHalfReady = 0;
-          ProcessAudioBlock(&i2sBuffer[0], I2S_HALFWORDS / 2U);
-      }
-      if (bufFullReady) {
-          bufFullReady = 0;
-          ProcessAudioBlock(&i2sBuffer[I2S_HALFWORDS / 2U],
-                  I2S_HALFWORDS / 2U);
-      }
+	        if (bufHalfReady) {
+	            bufHalfReady = 0;
+	            ProcessAudioBlock(&i2sBuffer[0], I2S_HALFWORDS / 2U);
+	        }
+	        if (bufFullReady) {
+	            bufFullReady = 0;
+	            ProcessAudioBlock(&i2sBuffer[I2S_HALFWORDS / 2U], I2S_HALFWORDS / 2U);
+	        }
+	  /* USER CODE END 3 */
+
+    /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
 }
@@ -261,9 +282,14 @@ void SystemClock_Config(void)
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
+  /** Configure the main internal regulator output voltage
+  */
   __HAL_RCC_PWR_CLK_ENABLE();
   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
+  /** Initializes the RCC Oscillators according to the specified parameters
+  * in the RCC_OscInitTypeDef structure.
+  */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
@@ -278,6 +304,8 @@ void SystemClock_Config(void)
     Error_Handler();
   }
 
+  /** Initializes the CPU, AHB and APB buses clocks
+  */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
@@ -298,6 +326,14 @@ void SystemClock_Config(void)
   */
 static void MX_I2S2_Init(void)
 {
+
+  /* USER CODE BEGIN I2S2_Init 0 */
+
+  /* USER CODE END I2S2_Init 0 */
+
+  /* USER CODE BEGIN I2S2_Init 1 */
+
+  /* USER CODE END I2S2_Init 1 */
   hi2s2.Instance = SPI2;
   hi2s2.Init.Mode = I2S_MODE_MASTER_RX;
   hi2s2.Init.Standard = I2S_STANDARD_PHILIPS;
@@ -306,11 +342,30 @@ static void MX_I2S2_Init(void)
   hi2s2.Init.AudioFreq = I2S_AUDIOFREQ_16K;
   hi2s2.Init.CPOL = I2S_CPOL_LOW;
   hi2s2.Init.ClockSource = I2S_CLOCK_PLL;
-  hi2s2.Init.FullDuplexMode = I2S_FULLDUPLEXMODE_DISABLE;
+  hi2s2.Init.FullDuplexMode = I2S_FULLDUPLEXMODE_ENABLE;
   if (HAL_I2S_Init(&hi2s2) != HAL_OK)
   {
     Error_Handler();
   }
+  /* USER CODE BEGIN I2S2_Init 2 */
+  /* USER CODE BEGIN I2S2_Init 2 */
+  hi2s2ext.Instance = I2S2ext;
+  hi2s2ext.Init.Mode = I2S_MODE_SLAVE_TX;
+  hi2s2ext.Init.Standard = I2S_STANDARD_PHILIPS;
+  hi2s2ext.Init.DataFormat = I2S_DATAFORMAT_24B;
+  hi2s2ext.Init.MCLKOutput = I2S_MCLKOUTPUT_DISABLE;
+  hi2s2ext.Init.AudioFreq = I2S_AUDIOFREQ_16K;
+  hi2s2ext.Init.CPOL = I2S_CPOL_LOW;
+  hi2s2ext.Init.ClockSource = I2S_CLOCK_PLL;
+  hi2s2ext.Init.FullDuplexMode = I2S_FULLDUPLEXMODE_DISABLE;
+  if (HAL_I2S_Init(&hi2s2ext) != HAL_OK)
+  {
+      Error_Handler();
+  }
+  /* USER CODE END I2S2_Init 2 */
+
+  /* USER CODE END I2S2_Init 2 */
+
 }
 
 /**
@@ -320,6 +375,14 @@ static void MX_I2S2_Init(void)
   */
 static void MX_USART1_UART_Init(void)
 {
+
+  /* USER CODE BEGIN USART1_Init 0 */
+
+  /* USER CODE END USART1_Init 0 */
+
+  /* USER CODE BEGIN USART1_Init 1 */
+
+  /* USER CODE END USART1_Init 1 */
   huart1.Instance = USART1;
   huart1.Init.BaudRate = 921600;
   huart1.Init.WordLength = UART_WORDLENGTH_8B;
@@ -332,6 +395,10 @@ static void MX_USART1_UART_Init(void)
   {
     Error_Handler();
   }
+  /* USER CODE BEGIN USART1_Init 2 */
+
+  /* USER CODE END USART1_Init 2 */
+
 }
 
 /**
@@ -341,6 +408,14 @@ static void MX_USART1_UART_Init(void)
   */
 static void MX_USART2_UART_Init(void)
 {
+
+  /* USER CODE BEGIN USART2_Init 0 */
+
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
   huart2.Instance = USART2;
   huart2.Init.BaudRate = 921600;
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
@@ -353,6 +428,10 @@ static void MX_USART2_UART_Init(void)
   {
     Error_Handler();
   }
+  /* USER CODE BEGIN USART2_Init 2 */
+
+  /* USER CODE END USART2_Init 2 */
+
 }
 
 /**
@@ -360,15 +439,25 @@ static void MX_USART2_UART_Init(void)
   */
 static void MX_DMA_Init(void)
 {
+
+  /* DMA controller clock enable */
   __HAL_RCC_DMA1_CLK_ENABLE();
   __HAL_RCC_DMA2_CLK_ENABLE();
 
+  /* DMA interrupt init */
+  /* DMA1_Stream3_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Stream3_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream3_IRQn);
+  /* DMA1_Stream4_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream4_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream4_IRQn);
+  /* DMA1_Stream5_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
+  /* DMA2_Stream2_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
+
 }
 
 /**
@@ -379,17 +468,27 @@ static void MX_DMA_Init(void)
 static void MX_GPIO_Init(void)
 {
   GPIO_InitTypeDef GPIO_InitStruct = {0};
+  /* USER CODE BEGIN MX_GPIO_Init_1 */
 
+  /* USER CODE END MX_GPIO_Init_1 */
+
+  /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
+  /*Configure GPIO pin : PA0 */
   GPIO_InitStruct.Pin = GPIO_PIN_0;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;  // Was GPIO_MODE_IT_RISING
   GPIO_InitStruct.Pull = GPIO_PULLDOWN;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
+  /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI0_IRQn);
+
+  /* USER CODE BEGIN MX_GPIO_Init_2 */
+
+  /* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
@@ -782,6 +881,7 @@ void esp_ring_buffer_write(uint8_t *data, uint16_t len)
 }
 
 /* === FINAL: Audio Processing -> TCP with length prefix === */
+/* === FINAL: Audio Processing -> TCP with length prefix === */
 void ProcessAudioBlock(uint16_t *data, uint16_t numHalfwords)
 {
     int16_t *fill = (fillIndex == 0) ? audioBufA : audioBufB;
@@ -838,6 +938,7 @@ void ProcessAudioBlock(uint16_t *data, uint16_t numHalfwords)
     sendReady = 1;
     fillIndex ^= 1;
 }
+
 
 void HAL_I2S_RxHalfCpltCallback(I2S_HandleTypeDef *hi2s)
 {
@@ -903,17 +1004,55 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 
 /* USER CODE END 4 */
 
+/**
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM9 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-  if (htim->Instance == TIM9) HAL_IncTick();
+  /* USER CODE BEGIN Callback 0 */
+
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM9)
+  {
+    HAL_IncTick();
+  }
+  /* USER CODE BEGIN Callback 1 */
+
+  /* USER CODE END Callback 1 */
 }
 
+/**
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
 void Error_Handler(void)
 {
+  /* USER CODE BEGIN Error_Handler_Debug */
+  /* User can add his own implementation to report the HAL error return state */
   __disable_irq();
-  while (1) {}
+  while (1)
+  {
+  }
+  /* USER CODE END Error_Handler_Debug */
 }
-
 #ifdef USE_FULL_ASSERT
-void assert_failed(uint8_t *file, uint32_t line) {}
-#endif
+/**
+  * @brief  Reports the name of the source file and the source line number
+  *         where the assert_param error has occurred.
+  * @param  file: pointer to the source file name
+  * @param  line: assert_param error line source number
+  * @retval None
+  */
+void assert_failed(uint8_t *file, uint32_t line)
+{
+  /* USER CODE BEGIN 6 */
+  /* User can add his own implementation to report the file name and line number,
+     ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
+  /* USER CODE END 6 */
+}
+#endif /* USE_FULL_ASSERT */
